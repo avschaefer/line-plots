@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import re
 import numpy as np
+import json
 from io import BytesIO
 from typing import Dict, List, Tuple
 import openpyxl
@@ -12,7 +13,7 @@ from openpyxl import Workbook
 
 # Page configuration
 st.set_page_config(
-    page_title="Force Tester Data Visualization",
+    page_title="Zwick Force Tester - Line Plot Generator",
     layout="wide"
 )
 
@@ -46,68 +47,18 @@ def rgb_to_hex(rgb) -> str:
     
     return f"#{r:02x}{g:02x}{b:02x}"
 
-# Color palettes
-VIBRANT_COLOR_FIESTA_PALETTE = [
-    "#ffbe0b",  # Yellow
-    "#fb5607",  # Orange-red
-    "#ff006e",  # Hot pink
-    "#8338ec",  # Purple
-    "#3a86ff"   # Blue
-]
-
-VIBRANT_COLOR_BLAST_PALETTE = [
-    "#006ba6",  # Deep blue
-    "#0496ff",  # Bright blue
-    "#ffbc42",  # Golden yellow
-    "#d81159",  # Hot pink
-    "#8f2d56"   # Deep pink
-]
-
-BOLD_HUES_PALETTE = [
-    "#f72585",  # Hot pink
-    "#7209b7",  # Purple
-    "#3a0ca3",  # Deep blue
-    "#4361ee",  # Bright blue
-    "#4cc9f0"   # Cyan
-]
-
-VIBRANT_SUMMER_PALETTE = [
-    "#ff595e",  # Coral red
-    "#ffca3a",  # Yellow
-    "#8ac926",  # Green
-    "#1982c4",  # Blue
-    "#6a4c93"   # Purple
-]
-
-ELECTRIC_DREAMS_PALETTE = [
-    "#0015ff",  # Bright blue
-    "#ff00a1",  # Hot pink
-    "#90fe00",  # Lime green
-    "#8400ff",  # Purple
-    "#00fff7",  # Cyan
-    "#ff7300"   # Orange
-]
-
 SUNSET_OCEAN_ORCHID_PALETTE = [
-    "#ff595e",  # Coral red
-    "#ff924c",  # Orange
-    "#ffca3a",  # Yellow
-    "#8ac926",  # Green
     "#1982c4",  # Blue
-    "#6a4c93"   # Purple
+    "#8ac926",  # Green
+    "#6a4c93",  # Purple
+    "#ff924c",  # Orange
+    "#ff595e",  # Coral red
+    "#ffca3a",  # Yellow
 ]
 
-def get_palette(palette_name: str):
-    """Get color palette by name."""
-    palettes = {
-        "Vibrant Color Fiesta": VIBRANT_COLOR_FIESTA_PALETTE,
-        "Vibrant Color Blast": VIBRANT_COLOR_BLAST_PALETTE,
-        "Bold Hues": BOLD_HUES_PALETTE,
-        "Vibrant Summer": VIBRANT_SUMMER_PALETTE,
-        "Electric Dreams": ELECTRIC_DREAMS_PALETTE,
-        "Sunset Ocean Orchid": SUNSET_OCEAN_ORCHID_PALETTE
-    }
-    return palettes.get(palette_name, VIBRANT_COLOR_FIESTA_PALETTE)
+def get_palette(palette_name: str = None):
+    """Get color palette."""
+    return SUNSET_OCEAN_ORCHID_PALETTE
 
 def identify_column_pairs(df_values: pd.DataFrame) -> List[Tuple[int, int, str]]:
     """
@@ -400,7 +351,9 @@ def create_chart(
     color_palette: str = "Vibrant Color Fiesta",
     x_increment: float = None,
     y_increment: float = None,
-    font_size: int = 12
+    font_size: int = 18,
+    width: int = None,
+    height: int = 600
 ):
     """Create a Plotly chart with customizable options."""
     
@@ -552,8 +505,8 @@ def create_chart(
         paper_bgcolor='white',
         hovermode='closest',
         template='simple_white',
-        width=None,
-        height=600
+        width=width,
+        height=height
     )
     
     # Force update axes separately to ensure proper initialization
@@ -624,8 +577,95 @@ def render_color_palette_ui(palette_name: str = "Sunset Ocean Orchid"):
     full_html = ''.join(html_parts)
     components.html(full_html, height=60)
 
+def handle_config_management():
+    """Handle saving and loading of chart configurations."""
+    # Layout for configuration management
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Save Configuration - Only prepare logic, don't show extra button
+        config_data = {
+            "version": "1.0",
+            "line_types": st.session_state.get("line_types", {}),
+            "line_colors": st.session_state.get("line_colors", {}),
+            "visibility": st.session_state.get("visibility", {}),
+            "sample_names": st.session_state.get("sample_names", {}),
+            "chart_settings": {
+                "title": st.session_state.get("chart_title", ""),
+                "subtitle": st.session_state.get("chart_subtitle", ""),
+                "x_axis": st.session_state.get("x_axis_title", ""),
+                "y_axis": st.session_state.get("y_axis_title", ""),
+                "font_size": st.session_state.get("font_size", 18),
+                "x_min": st.session_state.get("x_min"),
+                "x_max": st.session_state.get("x_max"),
+                "x_inc": st.session_state.get("x_inc"),
+                "y_min": st.session_state.get("y_min"),
+                "y_max": st.session_state.get("y_max"),
+                "y_inc": st.session_state.get("y_inc"),
+                "width": st.session_state.get("chart_width", 0),
+                "height": st.session_state.get("chart_height", 600)
+            }
+        }
+        
+        # Convert to JSON
+        json_str = json.dumps(config_data, indent=2)
+        
+        # Direct download button, styling it to match the layout request
+        st.download_button(
+            label="💾 Download Config",
+            data=json_str,
+            file_name="chart_config.json",
+            mime="application/json",
+            use_container_width=True
+        )
+
+    with col2:
+        # Load Configuration
+        uploaded_config = st.file_uploader("Upload Config", type=['json'], key="config_uploader", label_visibility="collapsed")
+        
+        if uploaded_config is not None:
+            if st.button("📂 Load Config", use_container_width=True):
+                try:
+                    config_data = json.load(uploaded_config)
+                    # Restore state values
+                    st.session_state.line_types = config_data.get("line_types", {})
+                    st.session_state.line_colors = config_data.get("line_colors", {})
+                    st.session_state.sample_names = config_data.get("sample_names", {})
+                    st.session_state.visibility = config_data.get("visibility", {})
+                    
+                    # Restore chart settings
+                    settings = config_data.get("chart_settings", {})
+                    st.session_state.chart_title = settings.get("title", "")
+                    st.session_state.chart_subtitle = settings.get("subtitle", "")
+                    st.session_state.x_axis_title = settings.get("x_axis", "")
+                    st.session_state.y_axis_title = settings.get("y_axis", "")
+                    
+                    # Restore values to session state, but note that widgets might need a rerun to pick them up
+                    # if they are not using these exact keys.
+                    st.session_state.font_size = settings.get("font_size", 18)
+                    st.session_state.chart_width = settings.get("width", 0)
+                    st.session_state.chart_height = settings.get("height", 600)
+                    
+                    # Also update the specific widget keys to ensure the inputs update visually
+                    st.session_state.font_size_input = settings.get("font_size", 18)
+                    st.session_state.chart_width_input = settings.get("width", 0)
+                    st.session_state.chart_height_input = settings.get("height", 600)
+
+                    st.session_state.x_min = settings.get("x_min")
+                    st.session_state.x_max = settings.get("x_max")
+                    st.session_state.x_inc = settings.get("x_inc")
+                    st.session_state.y_min = settings.get("y_min")
+                    st.session_state.y_max = settings.get("y_max")
+                    st.session_state.y_inc = settings.get("y_inc")
+                    
+                    st.success("Configuration loaded! The chart will update shortly.")
+                    st.rerun()
+                    
+                except Exception as e:
+                    st.error(f"Error loading configuration: {str(e)}")
+
 def main():
-    st.title("Force Tester Data Visualization")
+    st.title("Zwick Force Tester - Line Plot Generator")
     
     # File upload
     uploaded_file = st.file_uploader(
@@ -633,6 +673,11 @@ def main():
         type=['xlsx', 'xls']
     )
     
+    if uploaded_file is not None:
+        # Add Config Management here
+        with st.expander("📂 Import / Export Chart Settings", expanded=False):
+            handle_config_management()
+            
     # Display color palette UI with copy buttons
     render_color_palette_ui("Sunset Ocean Orchid")
     
@@ -704,16 +749,27 @@ def main():
             # Configure Test Groups Section
             with st.expander("Configure Test Groups", expanded=False):
                 # Create header row
-                header_col1, header_col2, header_col3, header_col4, header_col5 = st.columns([0.8, 2, 1.2, 1.2, 2.5])
+                header_col1, header_col2, header_col3, header_col4, header_col5 = st.columns([0.8, 2.5, 1.2, 1.5, 2])
                 header_col1.write("**Show**")
-                header_col2.write("**Config**")
+                header_col2.write("**Legend**")
                 header_col3.write("**Type**")
                 header_col4.write("**Color**")
-                header_col5.write("**Legend**")
+                header_col5.write("**Config**")
+                
+                # Palette color map
+                palette_map = {
+                    "Blue": "#1982c4",
+                    "Green": "#8ac926",
+                    "Purple": "#6a4c93",
+                    "Orange": "#ff924c",
+                    "Red": "#ff595e",
+                    "Yellow": "#ffca3a"
+                }
+                palette_options = ["Auto"] + list(palette_map.keys()) + ["Custom"]
                 
                 for config_name in all_configs:
                     # Create columns for each configuration
-                    col1, col2, col3, col4, col5 = st.columns([0.8, 2, 1.2, 1.2, 2.5])
+                    col1, col2, col3, col4, col5 = st.columns([0.8, 2.5, 1.2, 1.5, 2])
                     
                     # Column 1: Visibility checkbox
                     is_visible = col1.checkbox(
@@ -724,8 +780,23 @@ def main():
                     )
                     st.session_state.visibility[config_name] = is_visible
                     
-                    # Column 2: Configuration name
-                    col2.write(config_name)
+                    # Column 2: Legend name (Editable)
+                    first_sample = list(test_data[config_name].keys())[0]
+                    base_sample_name = first_sample.split('_rep')[0] if '_rep' in first_sample else first_sample
+                    current_display_name = st.session_state.sample_names.get(first_sample, base_sample_name)
+                    # Remove _rep suffix if present in stored name
+                    if '_rep' in current_display_name:
+                        current_display_name = current_display_name.split('_rep')[0]
+                    
+                    new_name = col2.text_input(
+                        "",
+                        value=current_display_name,
+                        key=f"name_{config_name}",
+                        label_visibility="collapsed"
+                    )
+                    # Apply same name to all replicates in this configuration
+                    for sample_name in test_data[config_name].keys():
+                        st.session_state.sample_names[sample_name] = new_name
                     
                     # Column 3: Line type
                     line_type = col3.selectbox(
@@ -739,114 +810,112 @@ def main():
                     )
                     st.session_state.line_types[config_name] = line_type
                     
-                    # Column 4: Line color
-                    # Get default color from selected palette
-                    selected_palette = get_palette(st.session_state.color_palette)
-                    palette_idx = all_configs.index(config_name) % len(selected_palette)
-                    palette_default_color = selected_palette[palette_idx]
-                    
-                    # Check if config has a manually set color
+                    # Column 4: Color Selection
+                    # Determine current selection state
                     stored_color = st.session_state.line_colors.get(config_name, None)
+                    current_selection = "Auto"
                     
-                    # Use palette default if no color is set
-                    if stored_color is None:
-                        default_color = palette_default_color
+                    if stored_color:
+                        stored_hex = rgb_to_hex(stored_color)
+                        # Check if it matches a palette color
+                        found_palette = False
+                        for name, hex_val in palette_map.items():
+                            if stored_hex.lower() == hex_val.lower():
+                                current_selection = name
+                                found_palette = True
+                                break
+                        if not found_palette:
+                            current_selection = "Custom"
+                    
+                    color_choice = col4.selectbox(
+                        "",
+                        options=palette_options,
+                        index=palette_options.index(current_selection),
+                        key=f"color_choice_{config_name}",
+                        label_visibility="collapsed"
+                    )
+                    
+                    final_color = None
+                    if color_choice == "Auto":
+                        # Will be handled in create_chart using palette index
+                        if config_name in st.session_state.line_colors:
+                            del st.session_state.line_colors[config_name]
+                    elif color_choice == "Custom":
+                        # Show color picker
+                        default_picker = stored_color if stored_color else "#000000"
+                        if isinstance(default_picker, tuple):
+                             default_picker = rgb_to_hex(default_picker)
+                        
+                        custom_color = col4.color_picker(
+                            "Pick color",
+                            value=default_picker,
+                            key=f"custom_color_{config_name}",
+                            label_visibility="collapsed"
+                        )
+                        st.session_state.line_colors[config_name] = custom_color
                     else:
-                        # Convert stored color to hex
-                        default_color = rgb_to_hex(stored_color)
-                    
-                    color = col4.color_picker(
-                        "",
-                        value=default_color,
-                        key=f"color_{config_name}",
-                        label_visibility="collapsed"
-                    )
-                    st.session_state.line_colors[config_name] = color
-                    
-                    # Column 5: Legend name
-                    first_sample = list(test_data[config_name].keys())[0]
-                    base_sample_name = first_sample.split('_rep')[0] if '_rep' in first_sample else first_sample
-                    current_display_name = st.session_state.sample_names.get(first_sample, base_sample_name)
-                    # Remove _rep suffix if present in stored name
-                    if '_rep' in current_display_name:
-                        current_display_name = current_display_name.split('_rep')[0]
-                    
-                    new_name = col5.text_input(
-                        "",
-                        value=current_display_name,
-                        key=f"name_{config_name}",
-                        label_visibility="collapsed"
-                    )
-                    # Apply same name to all replicates in this configuration
-                    for sample_name in test_data[config_name].keys():
-                        st.session_state.sample_names[sample_name] = new_name
+                        # Selected a palette color
+                        st.session_state.line_colors[config_name] = palette_map[color_choice]
+                        
+                    # Column 5: Configuration name (Read-only)
+                    col5.write(config_name)
             
             # Chart Configuration Section
             st.subheader("Chart Configuration")
             
             # Chart Labels Section
             with st.expander("Chart Labels", expanded=False):
-                chart_title = st.text_input("Title", value="Force vs Travel", key="chart_title")
-                chart_subtitle = st.text_input("Subtitle", value="", key="chart_subtitle")
-                col1, col2 = st.columns(2)
-                x_axis_title = col1.text_input("X Axis Title", value="Travel (mm)", key="x_axis_title")
-                y_axis_title = col2.text_input("Y Axis Title", value="Force (N)", key="y_axis_title")
+                lbl_col1, lbl_col2 = st.columns(2)
+                
+                with lbl_col1:
+                    chart_title = st.text_input("Title", value="Force vs Travel", key="chart_title")
+                    chart_subtitle = st.text_input("Subtitle", value="", key="chart_subtitle")
+                
+                with lbl_col2:
+                    x_axis_title = st.text_input("X Axis Title", value="Travel (mm)", key="x_axis_title")
+                    y_axis_title = st.text_input("Y Axis Title", value="Force (N)", key="y_axis_title")
                 
                 # Font size selector
                 if 'font_size' not in st.session_state:
-                    st.session_state.font_size = 12
-                font_size = st.number_input("Font Size", min_value=8, max_value=24, value=st.session_state.font_size, step=1, help="Font size for all chart text (title, labels, legend)")
+                    st.session_state.font_size = 18
+                
+                # Use a different key for the widget to avoid conflict, or handle state manually
+                font_size = st.number_input(
+                    "Font Size", 
+                    min_value=8, 
+                    max_value=24, 
+                    value=st.session_state.font_size, 
+                    step=1, 
+                    help="Font size for all chart text (title, labels, legend)", 
+                    key="font_size_input"
+                )
                 st.session_state.font_size = font_size
             
             # Scale Settings Section
             with st.expander("Scale Settings", expanded=False):
-                use_custom_x_scale = st.checkbox("Custom X Scale")
-                x_min = None
-                x_max = None
-                x_increment = None
-                if use_custom_x_scale:
-                    col1, col2 = st.columns(2)
-                    x_min = col1.number_input("X Min", value=None, format="%.2f")
-                    x_max = col2.number_input("X Max", value=None, format="%.2f")
-                    x_increment = st.number_input("X Axis Increment", min_value=0.1, value=5.0, step=0.1, format="%.1f", help="Spacing between ticks on x-axis")
+                scale_col1, scale_col2 = st.columns(2)
                 
-                use_custom_y_scale = st.checkbox("Custom Y Scale")
-                y_min = None
-                y_max = None
-                y_increment = None
-                if use_custom_y_scale:
-                    col1, col2 = st.columns(2)
-                    y_min = col1.number_input("Y Min", value=None, format="%.2f")
-                    y_max = col2.number_input("Y Max", value=None, format="%.2f")
-                    y_increment = st.number_input("Y Axis Increment", min_value=0.1, value=5.0, step=0.1, format="%.1f", help="Spacing between ticks on y-axis")
+                with scale_col1:
+                    st.markdown("**X Axis**")
+                    x_min = st.number_input("Min", value=None, format="%.2f", key="x_min")
+                    x_max = st.number_input("Max", value=None, format="%.2f", key="x_max")
+                    x_increment = st.number_input("Increment", min_value=0.1, value=5.0, step=0.1, format="%.1f", help="Spacing between ticks on x-axis", key="x_inc")
+
+                with scale_col2:
+                    st.markdown("**Y Axis**")
+                    y_min = st.number_input("Min", value=None, format="%.2f", key="y_min")
+                    y_max = st.number_input("Max", value=None, format="%.2f", key="y_max")
+                    y_increment = st.number_input("Increment", min_value=0.1, value=5.0, step=0.1, format="%.1f", help="Spacing between ticks on y-axis", key="y_inc")
             
             st.markdown("---")
             
-            # Color palette selector above chart
-            available_palettes = [
-                "Vibrant Color Fiesta",
-                "Vibrant Color Blast",
-                "Bold Hues",
-                "Vibrant Summer",
-                "Electric Dreams",
-                "Sunset Ocean Orchid"
-            ]
-            color_palette = st.selectbox(
-                "Color Palette",
-                options=available_palettes,
-                index=available_palettes.index(st.session_state.color_palette) if st.session_state.color_palette in available_palettes else 0,
-                key="palette_selector"
-            )
+            # Chart dimensions
+            dim_col1, dim_col2 = st.columns(2)
+            chart_width = dim_col1.number_input("Chart Width (px)", min_value=0, value=0, step=50, help="Set to 0 for auto-width", key="chart_width_input")
+            chart_height = dim_col2.number_input("Chart Height (px)", min_value=100, value=600, step=50, key="chart_height_input")
             
-            # Check if palette changed and reset colors
-            if color_palette != st.session_state.color_palette:
-                # Palette changed - clear all colors so they update to new palette
-                st.session_state.line_colors = {}
-                st.session_state.previous_palette = st.session_state.color_palette
-                st.session_state.color_palette = color_palette
-            else:
-                st.session_state.previous_palette = st.session_state.color_palette
-                st.session_state.color_palette = color_palette
+            st.session_state.chart_width = chart_width
+            st.session_state.chart_height = chart_height
             
             # Chart below configuration panel
             fig = create_chart(
@@ -866,31 +935,12 @@ def main():
                 st.session_state.color_palette,
                 x_increment,
                 y_increment,
-                st.session_state.font_size
+                st.session_state.font_size,
+                width=int(chart_width) if chart_width > 0 else None,
+                height=int(chart_height) if chart_height else 600
             )
             
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Data preview
-            with st.expander("Data Preview"):
-                st.subheader("Results Series (Sample Names)")
-                st.dataframe(df_results.head(20))
-                
-                st.subheader("Values Series (Raw Data)")
-                st.write("**Header rows (0-2):** Sample names, measurement types, and units")
-                st.dataframe(df_values.head(20))
-                
-                if len(df_values) > 20:
-                    st.caption(f"Showing first 20 rows of {len(df_values)} total rows")
-            
-            # Download chart as HTML
-            html_str = fig.to_html(include_plotlyjs='cdn')
-            st.download_button(
-                label="Download Chart as HTML",
-                data=html_str,
-                file_name="force_tester_chart.html",
-                mime="text/html"
-            )
+            st.plotly_chart(fig, use_container_width=True if (chart_width is None or chart_width <= 0) else False)
             
             # Download Excel data for selected groups
             try:
@@ -914,23 +964,13 @@ def main():
             st.error(f"Error processing file: {str(e)}")
             st.exception(e)
     else:
-        # Show expected data format
+        # Show instructions
         st.markdown("---")
-        st.subheader("Expected Data Format")
+        st.subheader("Instructions")
         st.markdown("""
-        Your Excel file should contain two sheets:
-        
-        **Sheet 1: "Results Series"**
-        - Contains unique sample names starting from row 2, column 0
-        
-        **Sheet 2: "Values Series"**
-        - Row 0: Sample name (repeated for each test)
-        - Row 1: Measurement type ("Standard travel" or "Standard force")
-        - Row 2: Units ("mm" or "N")
-        - Row 3+: Actual data values
-        - Columns come in pairs: travel (x) then force (y) for the same sample
-        
-        Samples with similar names will be automatically grouped together for consistent styling.
+        1. Verify sample naming convention is correct on TestExpert
+        2. Export data as excel file from TestExpert software. General Tab: udpate excel file type to .xlxs. General Tab: Edit export options to group by series (not specimen).
+        3. Click 'Browse files' and select exported excel sheet.
         """)
 
 if __name__ == "__main__":

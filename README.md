@@ -1,14 +1,20 @@
 # Force Tester Data Visualization
 
-A Streamlit application for visualizing force tester data from Excel files.
+A Streamlit application for visualizing force tester data from Excel files. This tool helps users analyze mechanical test data by automatically grouping replicates, allowing detailed customization, and enabling configuration persistence.
 
 ## Features
 
-- Upload Excel files with paired x-y data columns
-- Automatic grouping of similar test configurations
-- Fully customizable charts with Plotly
-- Interactive visualizations
-- Export charts as HTML
+- **Excel Data Import**: Supports Zwick Force Tester exports with paired x-y data columns ("Values Series") and result summaries ("Results Series").
+- **Smart Grouping**: Automatically groups test replicates based on sample naming conventions (e.g., `sample-1`, `sample-2` are grouped as `sample`).
+- **Interactive Visualization**: Zoom, pan, and hover over data points using Plotly interactive charts.
+- **Customizable Styling**:
+    - **Colors**: Assign specific colors to sample groups manually or use preset palettes.
+    - **Line Styles**: Choose between solid, dashed, or dash-dot lines.
+    - **Legend Names**: Rename groups directly in the UI for cleaner presentation.
+- **Configuration Management**:
+    - **Save/Load Settings**: Export your chart customization (colors, axes limits, titles) to a JSON file.
+    - **Restore Work**: Re-upload your data and JSON config to instantly restore your exact chart view.
+- **Data Export**: Download a filtered Excel file containing only the visible/selected data series.
 
 ## Installation
 
@@ -24,25 +30,32 @@ streamlit run app.py
 
 ## Usage
 
-1. Upload an Excel file containing force tester data
-2. Each test sample should have two adjacent columns (x data, y data)
-3. Customize the chart using the sidebar controls:
-   - Chart titles and axis labels
-   - Line types (solid, dash, dashdot)
-   - Line colors per configuration group
-   - Legend names
-   - Scale min/max values
+1. **Prepare Data**:
+   - Export data from TestExpert software.
+   - Ensure the export includes "Results Series" and "Values Series" sheets.
+   - Update export options to group by series.
 
-## Data Format
+2. **Upload File**:
+   - Launch the app and upload your `.xlsx` file.
 
-Your Excel file should have data organized as column pairs:
-- Column 1: X data (e.g., Travel in mm) for Sample 1
-- Column 2: Y data (e.g., Force in N) for Sample 1
-- Column 3: X data for Sample 2
-- Column 4: Y data for Sample 2
-- And so on...
+3. **Customize Chart**:
+   - Use the **"Configure Test Groups"** section to toggle visibility, change colors, and rename legend items.
+   - Use **"Chart Configuration"** to set titles, axis labels, font sizes, and specific axis ranges.
 
-Samples with similar names (e.g., `syringe-30G-water`, `syringe-30G-water-1`) 
-will be automatically grouped together for consistent styling.
+4. **Save Your Work**:
+   - Expand the **"Import / Export Chart Settings"** section.
+   - Click **"💾 Download Config"** to save your current styling.
+   - Next time, upload this JSON file to restore your settings.
 
-# plots
+## Data Format Requirements
+
+The application expects an Excel file with two specific sheets:
+
+1.  **Values Series**: Contains the raw measurement data.
+    *   Row 0: Sample Name
+    *   Row 1: Measurement Type (e.g., "Standard travel", "Standard force")
+    *   Row 2: Units
+    *   Row 3+: Data points
+    *   *Columns must be paired (Travel, Force) for each sample.*
+
+2.  **Results Series**: Contains summary results and sample names used for validation.

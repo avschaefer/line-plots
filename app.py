@@ -580,6 +580,7 @@ def render_color_palette_ui(palette_name: str = "Sunset Ocean Orchid"):
 def handle_config_management():
     """Handle saving and loading of chart configurations."""
     # Layout for configuration management
+    st.markdown("### Configuration")
     col1, col2 = st.columns(2)
     
     with col1:
@@ -612,7 +613,7 @@ def handle_config_management():
         
         # Direct download button, styling it to match the layout request
         st.download_button(
-            label="💾 Download Config",
+            label="💾 Save",
             data=json_str,
             file_name="chart_config.json",
             mime="application/json",
@@ -624,7 +625,7 @@ def handle_config_management():
         uploaded_config = st.file_uploader("Upload Config", type=['json'], key="config_uploader", label_visibility="collapsed")
         
         if uploaded_config is not None:
-            if st.button("📂 Load Config", use_container_width=True):
+            if st.button("📂 Load", use_container_width=True):
                 try:
                     config_data = json.load(uploaded_config)
                     # Restore state values
@@ -658,27 +659,29 @@ def handle_config_management():
                     st.session_state.y_max = settings.get("y_max")
                     st.session_state.y_inc = settings.get("y_inc")
                     
-                    st.success("Configuration loaded! The chart will update shortly.")
+                    st.success("Loaded!")
                     st.rerun()
                     
                 except Exception as e:
-                    st.error(f"Error loading configuration: {str(e)}")
+                    st.error(f"Error: {str(e)}")
 
 def main():
-    st.title("Zwick Force Tester - Line Plot Generator")
+    # Move title to sidebar as requested
+    st.sidebar.title("Zwick Force Tester - Line Plot Generator")
     
     # File upload
-    uploaded_file = st.file_uploader(
+    st.sidebar.header("Data Upload")
+    uploaded_file = st.sidebar.file_uploader(
         "Choose an Excel file",
         type=['xlsx', 'xls']
     )
     
     if uploaded_file is not None:
         # Add Config Management here
-        with st.expander("📂 Import / Export Chart Settings", expanded=False):
+        with st.sidebar.expander("📂 Import / Export Settings", expanded=False):
             handle_config_management()
             
-    # Display color palette UI with copy buttons
+    # Display color palette UI with copy buttons in main area as requested
     render_color_palette_ui("Sunset Ocean Orchid")
     
     if uploaded_file is not None:
@@ -746,15 +749,10 @@ def main():
             if 'previous_palette' not in st.session_state:
                 st.session_state.previous_palette = st.session_state.color_palette
             
-            # Configure Test Groups Section
+            # Configure Test Groups Section - moved back to main area
             with st.expander("Configure Test Groups", expanded=False):
                 # Create header row
-                header_col1, header_col2, header_col3, header_col4, header_col5 = st.columns([0.8, 2.5, 1.2, 1.5, 2])
-                header_col1.write("**Show**")
-                header_col2.write("**Legend**")
-                header_col3.write("**Type**")
-                header_col4.write("**Color**")
-                header_col5.write("**Config**")
+                st.write("**Groups Configuration**")
                 
                 # Palette color map
                 palette_map = {
@@ -768,7 +766,8 @@ def main():
                 palette_options = ["Auto"] + list(palette_map.keys()) + ["Custom"]
                 
                 for config_name in all_configs:
-                    # Create columns for each configuration
+                    # Use columns for layout in main area
+                    # We have more width here, so we can use the original 5-column layout
                     col1, col2, col3, col4, col5 = st.columns([0.8, 2.5, 1.2, 1.5, 2])
                     
                     # Column 1: Visibility checkbox
@@ -795,8 +794,8 @@ def main():
                         label_visibility="collapsed"
                     )
                     # Apply same name to all replicates in this configuration
-                    for sample_name in test_data[config_name].keys():
-                        st.session_state.sample_names[sample_name] = new_name
+                    for sample_name in test_data[config_name].items():
+                         st.session_state.sample_names[sample_name[0]] = new_name
                     
                     # Column 3: Line type
                     line_type = col3.selectbox(
@@ -835,7 +834,6 @@ def main():
                         label_visibility="collapsed"
                     )
                     
-                    final_color = None
                     if color_choice == "Auto":
                         # Will be handled in create_chart using palette index
                         if config_name in st.session_state.line_colors:
@@ -856,30 +854,24 @@ def main():
                     else:
                         # Selected a palette color
                         st.session_state.line_colors[config_name] = palette_map[color_choice]
-                        
-                    # Column 5: Configuration name (Read-only)
+
+                    # Column 5: Config Name (Read-only)
                     col5.write(config_name)
             
-            # Chart Configuration Section
-            st.subheader("Chart Configuration")
+            # Chart Configuration Section - Kept in sidebar as not requested to move back
+            st.sidebar.subheader("Chart Configuration")
             
             # Chart Labels Section
-            with st.expander("Chart Labels", expanded=False):
-                lbl_col1, lbl_col2 = st.columns(2)
-                
-                with lbl_col1:
-                    chart_title = st.text_input("Title", value="Force vs Travel", key="chart_title")
-                    chart_subtitle = st.text_input("Subtitle", value="", key="chart_subtitle")
-                
-                with lbl_col2:
-                    x_axis_title = st.text_input("X Axis Title", value="Travel (mm)", key="x_axis_title")
-                    y_axis_title = st.text_input("Y Axis Title", value="Force (N)", key="y_axis_title")
+            with st.sidebar.expander("Chart Labels", expanded=False):
+                chart_title = st.text_input("Title", value="Force vs Travel", key="chart_title")
+                chart_subtitle = st.text_input("Subtitle", value="", key="chart_subtitle")
+                x_axis_title = st.text_input("X Axis Title", value="Travel (mm)", key="x_axis_title")
+                y_axis_title = st.text_input("Y Axis Title", value="Force (N)", key="y_axis_title")
                 
                 # Font size selector
                 if 'font_size' not in st.session_state:
                     st.session_state.font_size = 18
                 
-                # Use a different key for the widget to avoid conflict, or handle state manually
                 font_size = st.number_input(
                     "Font Size", 
                     min_value=8, 
@@ -892,24 +884,28 @@ def main():
                 st.session_state.font_size = font_size
             
             # Scale Settings Section
-            with st.expander("Scale Settings", expanded=False):
-                scale_col1, scale_col2 = st.columns(2)
-                
-                with scale_col1:
-                    st.markdown("**X Axis**")
-                    x_min = st.number_input("Min", value=None, format="%.2f", key="x_min")
-                    x_max = st.number_input("Max", value=None, format="%.2f", key="x_max")
-                    x_increment = st.number_input("Increment", min_value=0.1, value=5.0, step=0.1, format="%.1f", help="Spacing between ticks on x-axis", key="x_inc")
+            with st.sidebar.expander("Scale Settings", expanded=False):
+                st.markdown("**X Axis**")
+                col_x1, col_x2 = st.columns(2)
+                with col_x1:
+                    x_min = st.number_input("Min X", value=None, format="%.2f", key="x_min")
+                with col_x2:
+                    x_max = st.number_input("Max X", value=None, format="%.2f", key="x_max")
+                x_increment = st.number_input("Inc X", min_value=0.1, value=5.0, step=0.1, format="%.1f", help="Spacing between ticks on x-axis", key="x_inc")
 
-                with scale_col2:
-                    st.markdown("**Y Axis**")
-                    y_min = st.number_input("Min", value=None, format="%.2f", key="y_min")
-                    y_max = st.number_input("Max", value=None, format="%.2f", key="y_max")
-                    y_increment = st.number_input("Increment", min_value=0.1, value=5.0, step=0.1, format="%.1f", help="Spacing between ticks on y-axis", key="y_inc")
+                st.markdown("**Y Axis**")
+                col_y1, col_y2 = st.columns(2)
+                with col_y1:
+                    y_min = st.number_input("Min Y", value=None, format="%.2f", key="y_min")
+                with col_y2:
+                    y_max = st.number_input("Max Y", value=None, format="%.2f", key="y_max")
+                y_increment = st.number_input("Inc Y", min_value=0.1, value=5.0, step=0.1, format="%.1f", help="Spacing between ticks on y-axis", key="y_inc")
             
-            st.markdown("---")
-            
-            # Chart dimensions
+            st.session_state.chart_width = st.session_state.get('chart_width', 0)
+            st.session_state.chart_height = st.session_state.get('chart_height', 600)
+
+            # Chart dimensions in main area
+            st.markdown("### Dimensions")
             dim_col1, dim_col2 = st.columns(2)
             chart_width = dim_col1.number_input("Chart Width (px)", min_value=0, value=0, step=50, help="Set to 0 for auto-width", key="chart_width_input")
             chart_height = dim_col2.number_input("Chart Height (px)", min_value=100, value=600, step=50, key="chart_height_input")
@@ -975,4 +971,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
